@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Predicciones (Penca/Porra)</title>
+    <title>Matriz de Predicciones</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -11,8 +11,10 @@
             --bg: #f3f4f6;
             --card-bg: #ffffff;
             --text: #1f2937;
-            --border: #e5e7eb;
-            --success: #10b981;
+            --border: #d1d5db;
+            --exact: #10b981; /* Verde */
+            --partial: #3b82f6; /* Azul */
+            --miss: #ef4444; /* Rojo */
         }
 
         body {
@@ -24,15 +26,19 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
         }
 
-        @media (max-width: 900px) {
-            .container { grid-template-columns: 1fr; }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid { grid-template-columns: 1fr; }
         }
 
         .card {
@@ -42,267 +48,310 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
-        h1 { grid-column: 1 / -1; text-align: center; color: var(--primary); margin-bottom: 0; }
-        h2 { font-size: 1.25rem; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+        h1 { text-align: center; color: var(--primary); margin-top: 0; }
+        h2 { font-size: 1.1rem; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
 
-        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        input[type="text"], input[type="number"] {
-            padding: 8px;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            flex: 1;
+        .input-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        input[type="text"] {
+            padding: 8px; border: 1px solid var(--border); border-radius: 4px; flex: 1;
         }
-        input[type="number"] { width: 50px; flex: none; text-align: center; }
         
         button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
+            background-color: var(--primary); color: white; border: none;
+            padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;
         }
         button:hover { background-color: var(--primary-hover); }
-        button.danger { background-color: #ef4444; padding: 4px 8px; font-size: 0.8rem; }
+        button.danger { background-color: #ef4444; padding: 4px 8px; font-size: 0.8rem; margin-left: 5px; }
 
-        .match-item, .participant-item {
-            background: var(--bg);
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            border: 1px solid var(--border);
+        /* Estilos de la Matriz */
+        .table-wrapper {
+            overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
-        .match-teams { font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between;}
-        .score-inputs { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { border: 1px solid var(--border); padding: 10px; text-align: center; }
+        th { background-color: #e5e7eb; position: relative; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
-        th { background-color: var(--bg); }
+        /* Fijar la primera y última columna al hacer scroll */
+        th:first-child, td:first-child { position: sticky; left: 0; background: #e5e7eb; font-weight: bold; z-index: 2; text-align: left; }
+        td:first-child { background: var(--card-bg); }
+        th:last-child, td:last-child { position: sticky; right: 0; background: #e5e7eb; font-weight: bold; z-index: 2; }
+        td:last-child { background: #f9fafb; font-size: 1.2rem; color: var(--primary); }
+
+        .score-box {
+            width: 35px; padding: 5px; text-align: center; border: 1px solid var(--border);
+            border-radius: 4px; font-weight: bold;
+        }
+
+        .real-score-header {
+            background: #fff; padding: 8px; border-radius: 4px; margin-top: 8px;
+            border: 2px solid var(--primary); display: inline-block;
+        }
+
+        /* Colores de resultados */
+        .cell-exact { background-color: #d1fae5 !important; } /* Verde claro */
+        .cell-partial { background-color: #dbeafe !important; } /* Azul claro */
         
-        .badge-exact { background: var(--success); color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.8rem; }
-        .badge-partial { background: var(--primary); color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.8rem; }
-        
-        .clear-btn { grid-column: 1 / -1; background-color: #ef4444; margin-top: 20px; }
+        .leyenda {
+            display: flex; gap: 15px; justify-content: center; margin: 15px 0; font-size: 0.9rem;
+        }
+        .leyenda div { display: flex; align-items: center; gap: 5px; }
+        .box-color { width: 15px; height: 15px; border-radius: 3px; border: 1px solid #999; }
+
+        .leaderboard { width: 100%; max-width: 500px; margin: 0 auto; }
+        .leaderboard th { background: var(--primary); color: white; }
+        .leaderboard td { text-align: center; }
+        .leaderboard td:nth-child(2) { text-align: left; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Gestor de Resultados y Puntos</h1>
+        <h1>Control de Predicciones - Modo Matriz</h1>
         
-        <!-- SECCIÓN 1: PARTIDOS -->
-        <div class="card">
-            <h2>1. Partidos Reales</h2>
-            <div class="input-group">
-                <input type="text" id="team1" placeholder="Equipo Local">
-                <input type="text" id="team2" placeholder="Equipo Visitante">
-                <button onclick="addMatch()">Añadir</button>
+        <div class="controls-grid">
+            <div class="card">
+                <h2>1. Añadir Partido</h2>
+                <div class="input-group">
+                    <input type="text" id="team1" placeholder="Ej: Real Madrid">
+                    <input type="text" id="team2" placeholder="Ej: Al-Hilal">
+                    <button onclick="addMatch()">Añadir</button>
+                </div>
             </div>
-            <div id="matchesList"></div>
+
+            <div class="card">
+                <h2>2. Añadir Participante (Máx. 20)</h2>
+                <div class="input-group">
+                    <input type="text" id="participantName" placeholder="Nombre del participante" onkeypress="if(event.key === 'Enter') addParticipant()">
+                    <button onclick="addParticipant()">Añadir</button>
+                </div>
+            </div>
         </div>
 
-        <!-- SECCIÓN 2: PARTICIPANTES Y PREDICCIONES -->
-        <div class="card">
-            <h2>2. Participantes y Pronósticos</h2>
-            <div class="input-group">
-                <input type="text" id="participantName" placeholder="Nombre del participante">
-                <button onclick="addParticipant()">Añadir</button>
-            </div>
-            <div id="participantsList"></div>
+        <div class="leyenda">
+            <div><div class="box-color" style="background: #d1fae5;"></div> 3 Puntos (Exacto)</div>
+            <div><div class="box-color" style="background: #dbeafe;"></div> 1 Punto (Ganador/Empate)</div>
+            <div><div class="box-color" style="background: #ffffff;"></div> 0 Puntos</div>
         </div>
 
-        <!-- SECCIÓN 3: TABLA DE POSICIONES -->
+        <!-- TABLA MATRIZ PRINCIPAL -->
+        <div class="table-wrapper" id="matrixWrapper">
+            <!-- La tabla se genera por JavaScript -->
+        </div>
+
+        <!-- TABLA DE POSICIONES ORDENADA -->
         <div class="card">
-            <h2>3. Tabla de Posiciones</h2>
-            <p style="font-size: 0.9rem; color: #6b7280;">Marcador exacto: 3 pts | Acertar ganador/empate: 1 pt</p>
-            <table id="leaderboard">
+            <h2>Tabla de Posiciones (Ranking)</h2>
+            <table class="leaderboard" id="leaderboard">
                 <thead>
                     <tr>
-                        <th>Pos</th>
+                        <th width="50">Pos</th>
                         <th>Participante</th>
-                        <th>Puntos</th>
+                        <th width="100">Puntos</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
             </table>
         </div>
         
-        <button class="clear-btn" onclick="clearData()">Borrar todos los datos y reiniciar</button>
+        <div style="text-align: center; margin-top: 40px;">
+            <button class="danger" onclick="clearData()" style="padding: 10px 20px;">Borrar Todos los Datos</button>
+        </div>
     </div>
 
     <script>
-        // ESTADO DE LA APLICACIÓN
         let state = {
-            matches: [], // { id, team1, team2, res1, res2 }
-            participants: [] // { id, name, predictions: { matchId: { p1, p2 } } }
+            matches: [], // { id, t1, t2, r1, r2 }
+            participants: [] // { id, name, preds: { matchId: { p1, p2 } } }
         };
 
-        // Cargar datos de localStorage al iniciar
-        const savedState = localStorage.getItem('prediccionesState');
+        // Cargar datos
+        const savedState = localStorage.getItem('pencaMatrixState');
         if (savedState) state = JSON.parse(savedState);
 
         function saveData() {
-            localStorage.setItem('prediccionesState', JSON.stringify(state));
-            render();
+            localStorage.setItem('pencaMatrixState', JSON.stringify(state));
         }
 
-        // --- FUNCIONES PARA PARTIDOS ---
+        // --- GESTIÓN DE DATOS ---
         function addMatch() {
             const t1 = document.getElementById('team1').value.trim();
             const t2 = document.getElementById('team2').value.trim();
             if (!t1 || !t2) return alert('Ingresa ambos equipos');
             
-            state.matches.push({ id: Date.now(), team1: t1, team2: t2, res1: '', res2: '' });
-            document.getElementById('team1').value = '';
-            document.getElementById('team2').value = '';
-            saveData();
+            state.matches.push({ id: Date.now(), t1, t2, r1: '', r2: '' });
+            document.getElementById('team1').value = ''; document.getElementById('team2').value = '';
+            saveData(); renderMatrix();
         }
 
-        function updateMatchResult(id, res1, res2) {
-            const match = state.matches.find(m => m.id === id);
-            if (match) {
-                match.res1 = res1;
-                match.res2 = res2;
-                saveData();
-            }
-        }
-
-        function deleteMatch(id) {
-            state.matches = state.matches.filter(m => m.id !== id);
-            // Limpiar predicciones huérfanas
-            state.participants.forEach(p => delete p.predictions[id]);
-            saveData();
-        }
-
-        // --- FUNCIONES PARA PARTICIPANTES ---
         function addParticipant() {
+            if (state.participants.length >= 20) return alert('Has alcanzado el límite de 20 participantes.');
             const name = document.getElementById('participantName').value.trim();
-            if (!name) return alert('Ingresa un nombre');
+            if (!name) return;
             
-            state.participants.push({ id: Date.now(), name: name, predictions: {} });
+            state.participants.push({ id: Date.now(), name, preds: {} });
             document.getElementById('participantName').value = '';
-            saveData();
+            saveData(); renderMatrix();
         }
 
-        function updatePrediction(participantId, matchId, p1, p2) {
-            const participant = state.participants.find(p => p.id === participantId);
-            if (participant) {
-                participant.predictions[matchId] = { p1, p2 };
-                saveData();
+        function delMatch(id) {
+            if(confirm('¿Borrar este partido y todas sus predicciones?')) {
+                state.matches = state.matches.filter(m => m.id !== id);
+                state.participants.forEach(p => delete p.preds[id]);
+                saveData(); renderMatrix();
             }
         }
 
-        function deleteParticipant(id) {
-            state.participants = state.participants.filter(p => p.id !== id);
-            saveData();
-        }
-
-        // --- LÓGICA DE PUNTUACIÓN ---
-        function calculatePoints() {
-            let rankings = state.participants.map(p => {
-                let totalPoints = 0;
-                
-                state.matches.forEach(match => {
-                    // Si el partido ya tiene resultado real
-                    if (match.res1 !== '' && match.res2 !== '') {
-                        const pred = p.predictions[match.id];
-                        if (pred && pred.p1 !== '' && pred.p2 !== '') {
-                            const real1 = parseInt(match.res1);
-                            const real2 = parseInt(match.res2);
-                            const p1 = parseInt(pred.p1);
-                            const p2 = parseInt(pred.p2);
-
-                            // Evaluar Exacto (3 puntos)
-                            if (real1 === p1 && real2 === p2) {
-                                totalPoints += 3;
-                            } else {
-                                // Evaluar Ganador/Empate (1 punto)
-                                const realOutcome = real1 > real2 ? 1 : (real1 < real2 ? -1 : 0);
-                                const predOutcome = p1 > p2 ? 1 : (p1 < p2 ? -1 : 0);
-                                
-                                if (realOutcome === predOutcome) {
-                                    totalPoints += 1;
-                                }
-                            }
-                        }
-                    }
-                });
-                return { ...p, points: totalPoints };
-            });
-
-            // Ordenar por puntos (mayor a menor)
-            return rankings.sort((a, b) => b.points - a.points);
+        function delPart(id) {
+            if(confirm('¿Borrar a este participante?')) {
+                state.participants = state.participants.filter(p => p.id !== id);
+                saveData(); renderMatrix();
+            }
         }
 
         function clearData() {
-            if (confirm('¿Estás seguro de que deseas borrar todos los partidos y participantes?')) {
+            if(confirm('¿SEGURO? Esto borrará todo.')) {
                 state = { matches: [], participants: [] };
-                saveData();
+                saveData(); renderMatrix();
             }
         }
 
-        // --- INTERFAZ GRÁFICA (RENDERIZADO) ---
-        function render() {
-            // Render Partidos
-            const matchesDiv = document.getElementById('matchesList');
-            matchesDiv.innerHTML = state.matches.map(m => `
-                <div class="match-item">
-                    <div class="match-teams">
-                        <span>${m.team1} vs ${m.team2}</span>
-                        <button class="danger" onclick="deleteMatch(${m.id})">X</button>
-                    </div>
-                    <div class="score-inputs">
-                        <label style="font-size:0.8rem">Res. Real:</label>
-                        <input type="number" min="0" value="${m.res1}" onchange="updateMatchResult(${m.id}, this.value, m.res2)" placeholder="0">
-                        <span>-</span>
-                        <input type="number" min="0" value="${m.res2}" onchange="updateMatchResult(${m.id}, m.res1, this.value)" placeholder="0">
-                    </div>
-                </div>
-            `).join('');
+        // --- ACTUALIZACIÓN DINÁMICA (Sin perder foco del teclado) ---
+        function handleRealScore(matchId, field, value) {
+            const match = state.matches.find(m => m.id === matchId);
+            match[field] = value;
+            saveData();
+            updateScoresUI();
+        }
 
-            // Render Participantes
-            const partsDiv = document.getElementById('participantsList');
-            if (state.matches.length === 0) {
-                partsDiv.innerHTML = '<p style="font-size:0.9rem; color:#666;">Añade partidos primero para ingresar pronósticos.</p>';
-            } else {
-                partsDiv.innerHTML = state.participants.map(p => `
-                    <div class="participant-item">
-                        <div class="match-teams">
-                            <span style="font-weight:bold; color:var(--primary);">${p.name}</span>
-                            <button class="danger" onclick="deleteParticipant(${p.id})">X</button>
-                        </div>
-                        ${state.matches.map(m => {
-                            const pred = p.predictions[m.id] || { p1: '', p2: '' };
-                            return `
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; font-size:0.9rem;">
-                                    <span>${m.team1} v ${m.team2}</span>
-                                    <div style="display:flex; gap:5px;">
-                                        <input type="number" min="0" value="${pred.p1}" onchange="updatePrediction(${p.id}, ${m.id}, this.value, '${pred.p2}')">
-                                        <input type="number" min="0" value="${pred.p2}" onchange="updatePrediction(${p.id}, ${m.id}, '${pred.p1}', this.value)">
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `).join('');
-            }
+        function handlePred(partId, matchId, field, value) {
+            const part = state.participants.find(p => p.id === partId);
+            if (!part.preds[matchId]) part.preds[matchId] = { p1: '', p2: '' };
+            part.preds[matchId][field] = value;
+            saveData();
+            updateScoresUI();
+        }
 
-            // Render Tabla
-            const rankings = calculatePoints();
+        // --- LÓGICA DE PUNTOS Y ACTUALIZACIÓN VISUAL ---
+        function getPoints(match, pred) {
+            if (!match || !pred || match.r1 === '' || match.r2 === '' || pred.p1 === '' || pred.p2 === '') return 0;
+            
+            const r1 = parseInt(match.r1), r2 = parseInt(match.r2);
+            const p1 = parseInt(pred.p1), p2 = parseInt(pred.p2);
+
+            if (r1 === p1 && r2 === p2) return 3; // Exacto
+            
+            const realSign = Math.sign(r1 - r2);
+            const predSign = Math.sign(p1 - p2);
+            if (realSign === predSign) return 1; // Ganador/Empate
+            
+            return 0; // Fallo
+        }
+
+        function updateScoresUI() {
+            let rankings = [];
+
+            state.participants.forEach(p => {
+                let totalPts = 0;
+                
+                state.matches.forEach(m => {
+                    const pred = p.preds[m.id];
+                    const pts = getPoints(m, pred);
+                    totalPts += pts;
+
+                    // Actualizar color de la celda si el partido ya terminó
+                    const cell = document.getElementById(`cell_${p.id}_${m.id}`);
+                    if (cell) {
+                        cell.className = ''; // reset
+                        if (m.r1 !== '' && m.r2 !== '') {
+                            if (pts === 3) cell.classList.add('cell-exact');
+                            else if (pts === 1) cell.classList.add('cell-partial');
+                        }
+                    }
+                });
+
+                // Actualizar total en la tabla principal
+                const totalEl = document.getElementById(`total_${p.id}`);
+                if (totalEl) totalEl.innerText = totalPts;
+
+                rankings.push({ name: p.name, points: totalPts });
+            });
+
+            // Actualizar Ranking Ordenado
+            rankings.sort((a, b) => b.points - a.points);
             const tbody = document.querySelector('#leaderboard tbody');
-            tbody.innerHTML = rankings.map((r, index) => `
+            tbody.innerHTML = rankings.map((r, i) => `
                 <tr>
-                    <td>${index + 1}</td>
-                    <td style="font-weight:bold;">${r.name}</td>
-                    <td><strong>${r.points}</strong> pts</td>
+                    <td>${i + 1}</td>
+                    <td><strong>${r.name}</strong></td>
+                    <td>${r.points}</td>
                 </tr>
             `).join('');
         }
 
-        // Iniciar app
-        render();
+        // --- RENDERIZADO INICIAL DE LA MATRIZ ---
+        function renderMatrix() {
+            const wrapper = document.getElementById('matrixWrapper');
+            
+            if (state.participants.length === 0 && state.matches.length === 0) {
+                wrapper.innerHTML = '<p style="text-align:center; padding:20px; color:#666;">Añade partidos y participantes para comenzar.</p>';
+                updateScoresUI();
+                return;
+            }
+
+            let html = `<table><thead><tr>
+                <th>Participantes <span style="font-weight:normal; font-size:0.8rem">(${state.participants.length}/20)</span></th>`;
+            
+            // Cabeceras de Partidos (Resultados Reales)
+            state.matches.forEach(m => {
+                html += `
+                <th>
+                    <div style="font-size:0.9rem">${m.t1} vs ${m.t2}</div>
+                    <div class="real-score-header">
+                        Res. Real: 
+                        <input type="number" min="0" class="score-box" value="${m.r1}" oninput="handleRealScore(${m.id}, 'r1', this.value)"> - 
+                        <input type="number" min="0" class="score-box" value="${m.r2}" oninput="handleRealScore(${m.id}, 'r2', this.value)">
+                    </div>
+                    <br><button class="danger" onclick="delMatch(${m.id})" style="margin-top:8px">Borrar</button>
+                </th>`;
+            });
+            
+            html += `<th>Total Pts</th></tr></thead><tbody>`;
+
+            // Filas de Participantes (Predicciones)
+            state.participants.forEach(p => {
+                html += `<tr>
+                    <td>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            ${p.name}
+                            <button class="danger" onclick="delPart(${p.id})">X</button>
+                        </div>
+                    </td>`;
+                
+                state.matches.forEach(m => {
+                    const pred = p.preds[m.id] || { p1: '', p2: '' };
+                    html += `
+                    <td id="cell_${p.id}_${m.id}">
+                        <input type="number" min="0" class="score-box" value="${pred.p1}" oninput="handlePred(${p.id}, ${m.id}, 'p1', this.value)"> - 
+                        <input type="number" min="0" class="score-box" value="${pred.p2}" oninput="handlePred(${p.id}, ${m.id}, 'p2', this.value)">
+                    </td>`;
+                });
+
+                html += `<td id="total_${p.id}">0</td></tr>`;
+            });
+
+            html += `</tbody></table>`;
+            wrapper.innerHTML = html;
+            
+            updateScoresUI(); // Calcula puntos y colores la primera vez
+        }
+
+        // Iniciar
+        renderMatrix();
     </script>
 </body>
 </html>
