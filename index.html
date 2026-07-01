@@ -1,0 +1,41 @@
+
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pronósticos Mundial</title>
+<style>
+body{font-family:Arial;background:#111;color:#fff;margin:0}header{background:#c00;padding:16px;text-align:center}
+table{width:100%;border-collapse:collapse}td,th{border:1px solid #444;padding:8px}input{width:50px}
+button{padding:8px 12px;background:#c00;color:#fff;border:0}.wrap{max-width:900px;margin:auto;padding:20px}
+</style></head><body><header><h1>🏆 Pronósticos Mundial</h1></header>
+<div class="wrap">
+<p>Ingrese sus pronósticos. Los datos se guardan en su navegador.</p>
+<table id="t"><tr><th>Partido</th><th>Tu Local</th><th>Tu Visitante</th></tr></table>
+<button onclick="guardar()">Guardar</button>
+<h2>Ranking local</h2><ol id="ranking"></ol>
+</div>
+<script>
+const partidos=[
+["Brasil","Japón"],["Alemania","Paraguay"],["Países Bajos","Marruecos"],
+["Costa de Marfil","Noruega"],["Francia","Suecia"],["México","Ecuador"],
+["Inglaterra","RD Congo"],["Bélgica","Senegal"],["EE.UU.","Bosnia"],
+["España","Austria"],["Portugal","Croacia"],["Suiza","Argelia"],
+["Australia","Egipto"],["Argentina","Cabo Verde"],["Colombia","Ghana"]
+];
+const t=document.getElementById("t");
+partidos.forEach((p,i)=>{
+ let r=t.insertRow();
+ r.innerHTML=`<td>${p[0]} vs ${p[1]}</td>
+<td><input id='l${i}' type='number' min=0></td>
+<td><input id='v${i}' type='number' min=0></td>`;
+});
+function guardar(){
+ let data=partidos.map((_,i)=>({l:document.getElementById('l'+i).value,v:document.getElementById('v'+i).value}));
+ localStorage.setItem('pronosticos',JSON.stringify(data));
+ alert('Guardado');
+}
+(function cargar(){
+ let d=JSON.parse(localStorage.getItem('pronosticos')||"[]");
+ d.forEach((x,i)=>{if(x){l=document.getElementById('l'+i);v=document.getElementById('v'+i);l.value=x.l;v.value=x.v;}});
+ document.getElementById("ranking").innerHTML="<li>Tú - 0 pts</li>";
+})();
+</script></body></html>
