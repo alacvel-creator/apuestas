@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Predicciones (Penca/Porra)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 { grid-column: 1 / -1; text-align: center; color: var(--primary); margin-bottom: 0; }
+        h2 { font-size: 1.25rem; margin-top: 0; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        input[type="text"], input[type="number"] {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            flex: 1;
+        }
+        input[type="number"] { width: 50px; flex: none; text-align: center; }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: var(--primary-hover); }
+        button.danger { background-color: #ef4444; padding: 4px 8px; font-size: 0.8rem; }
+
+        .match-item, .participant-item {
+            background: var(--bg);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .match-teams { font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between;}
+        .score-inputs { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+        th { background-color: var(--bg); }
+        
+        .badge-exact { background: var(--success); color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.8rem; }
+        .badge-partial { background: var(--primary); color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.8rem; }
+        
+        .clear-btn { grid-column: 1 / -1; background-color: #ef4444; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Gestor de Resultados y Puntos</h1>
+        
+        <!-- SECCIÓN 1: PARTIDOS -->
+        <div class="card">
+            <h2>1. Partidos Reales</h2>
+            <div class="input-group">
+                <input type="text" id="team1" placeholder="Equipo Local">
+                <input type="text" id="team2" placeholder="Equipo Visitante">
+                <button onclick="addMatch()">Añadir</button>
+            </div>
+            <div id="matchesList"></div>
+        </div>
+
+        <!-- SECCIÓN 2: PARTICIPANTES Y PREDICCIONES -->
+        <div class="card">
+            <h2>2. Participantes y Pronósticos</h2>
+            <div class="input-group">
+                <input type="text" id="participantName" placeholder="Nombre del participante">
+                <button onclick="addParticipant()">Añadir</button>
+            </div>
+            <div id="participantsList"></div>
+        </div>
+
+        <!-- SECCIÓN 3: TABLA DE POSICIONES -->
+        <div class="card">
+            <h2>3. Tabla de Posiciones</h2>
+            <p style="font-size: 0.9rem; color: #6b7280;">Marcador exacto: 3 pts | Acertar ganador/empate: 1 pt</p>
+            <table id="leaderboard">
+                <thead>
+                    <tr>
+                        <th>Pos</th>
+                        <th>Participante</th>
+                        <th>Puntos</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <button class="clear-btn" onclick="clearData()">Borrar todos los datos y reiniciar</button>
+    </div>
+
+    <script>
+        // ESTADO DE LA APLICACIÓN
+        let state = {
+            matches: [], // { id, team1, team2, res1, res2 }
+            participants: [] // { id, name, predictions: { matchId: { p1, p2 } } }
+        };
+
+        // Cargar datos de localStorage al iniciar
+        const savedState = localStorage.getItem('prediccionesState');
+        if (savedState) state = JSON.parse(savedState);
+
+        function saveData() {
+            localStorage.setItem('prediccionesState', JSON.stringify(state));
+            render();
+        }
+
+        // --- FUNCIONES PARA PARTIDOS ---
+        function addMatch() {
+            const t1 = document.getElementById('team1').value.trim();
+            const t2 = document.getElementById('team2').value.trim();
+            if (!t1 || !t2) return alert('Ingresa ambos equipos');
+            
+            state.matches.push({ id: Date.now(), team1: t1, team2: t2, res1: '', res2: '' });
+            document.getElementById('team1').value = '';
+            document.getElementById('team2').value = '';
+            saveData();
+        }
+
+        function updateMatchResult(id, res1, res2) {
+            const match = state.matches.find(m => m.id === id);
+            if (match) {
+                match.res1 = res1;
+                match.res2 = res2;
+                saveData();
+            }
+        }
+
+        function deleteMatch(id) {
+            state.matches = state.matches.filter(m => m.id !== id);
+            // Limpiar predicciones huérfanas
+            state.participants.forEach(p => delete p.predictions[id]);
+            saveData();
+        }
+
+        // --- FUNCIONES PARA PARTICIPANTES ---
+        function addParticipant() {
+            const name = document.getElementById('participantName').value.trim();
+            if (!name) return alert('Ingresa un nombre');
+            
+            state.participants.push({ id: Date.now(), name: name, predictions: {} });
+            document.getElementById('participantName').value = '';
+            saveData();
+        }
+
+        function updatePrediction(participantId, matchId, p1, p2) {
+            const participant = state.participants.find(p => p.id === participantId);
+            if (participant) {
+                participant.predictions[matchId] = { p1, p2 };
+                saveData();
+            }
+        }
+
+        function deleteParticipant(id) {
+            state.participants = state.participants.filter(p => p.id !== id);
+            saveData();
+        }
+
+        // --- LÓGICA DE PUNTUACIÓN ---
+        function calculatePoints() {
+            let rankings = state.participants.map(p => {
+                let totalPoints = 0;
+                
+                state.matches.forEach(match => {
+                    // Si el partido ya tiene resultado real
+                    if (match.res1 !== '' && match.res2 !== '') {
+                        const pred = p.predictions[match.id];
+                        if (pred && pred.p1 !== '' && pred.p2 !== '') {
+                            const real1 = parseInt(match.res1);
+                            const real2 = parseInt(match.res2);
+                            const p1 = parseInt(pred.p1);
+                            const p2 = parseInt(pred.p2);
+
+                            // Evaluar Exacto (3 puntos)
+                            if (real1 === p1 && real2 === p2) {
+                                totalPoints += 3;
+                            } else {
+                                // Evaluar Ganador/Empate (1 punto)
+                                const realOutcome = real1 > real2 ? 1 : (real1 < real2 ? -1 : 0);
+                                const predOutcome = p1 > p2 ? 1 : (p1 < p2 ? -1 : 0);
+                                
+                                if (realOutcome === predOutcome) {
+                                    totalPoints += 1;
+                                }
+                            }
+                        }
+                    }
+                });
+                return { ...p, points: totalPoints };
+            });
+
+            // Ordenar por puntos (mayor a menor)
+            return rankings.sort((a, b) => b.points - a.points);
+        }
+
+        function clearData() {
+            if (confirm('¿Estás seguro de que deseas borrar todos los partidos y participantes?')) {
+                state = { matches: [], participants: [] };
+                saveData();
+            }
+        }
+
+        // --- INTERFAZ GRÁFICA (RENDERIZADO) ---
+        function render() {
+            // Render Partidos
+            const matchesDiv = document.getElementById('matchesList');
+            matchesDiv.innerHTML = state.matches.map(m => `
+                <div class="match-item">
+                    <div class="match-teams">
+                        <span>${m.team1} vs ${m.team2}</span>
+                        <button class="danger" onclick="deleteMatch(${m.id})">X</button>
+                    </div>
+                    <div class="score-inputs">
+                        <label style="font-size:0.8rem">Res. Real:</label>
+                        <input type="number" min="0" value="${m.res1}" onchange="updateMatchResult(${m.id}, this.value, m.res2)" placeholder="0">
+                        <span>-</span>
+                        <input type="number" min="0" value="${m.res2}" onchange="updateMatchResult(${m.id}, m.res1, this.value)" placeholder="0">
+                    </div>
+                </div>
+            `).join('');
+
+            // Render Participantes
+            const partsDiv = document.getElementById('participantsList');
+            if (state.matches.length === 0) {
+                partsDiv.innerHTML = '<p style="font-size:0.9rem; color:#666;">Añade partidos primero para ingresar pronósticos.</p>';
+            } else {
+                partsDiv.innerHTML = state.participants.map(p => `
+                    <div class="participant-item">
+                        <div class="match-teams">
+                            <span style="font-weight:bold; color:var(--primary);">${p.name}</span>
+                            <button class="danger" onclick="deleteParticipant(${p.id})">X</button>
+                        </div>
+                        ${state.matches.map(m => {
+                            const pred = p.predictions[m.id] || { p1: '', p2: '' };
+                            return `
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px; font-size:0.9rem;">
+                                    <span>${m.team1} v ${m.team2}</span>
+                                    <div style="display:flex; gap:5px;">
+                                        <input type="number" min="0" value="${pred.p1}" onchange="updatePrediction(${p.id}, ${m.id}, this.value, '${pred.p2}')">
+                                        <input type="number" min="0" value="${pred.p2}" onchange="updatePrediction(${p.id}, ${m.id}, '${pred.p1}', this.value)">
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `).join('');
+            }
+
+            // Render Tabla
+            const rankings = calculatePoints();
+            const tbody = document.querySelector('#leaderboard tbody');
+            tbody.innerHTML = rankings.map((r, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td style="font-weight:bold;">${r.name}</td>
+                    <td><strong>${r.points}</strong> pts</td>
+                </tr>
+            `).join('');
+        }
+
+        // Iniciar app
+        render();
+    </script>
+</body>
+</html>
